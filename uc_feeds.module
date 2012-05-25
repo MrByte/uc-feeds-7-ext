@@ -55,6 +55,26 @@ function uc_feeds_feeds_processor_targets_alter(&$targets, $entity_type, $bundle
       'description' => 'Ubercart:' . t('Weight Unit'),
     );
     
+    // Prices per Role
+    if (module_exists("uc_price_per_role"))
+    {
+      $enabled = variable_get('uc_price_per_role_enabled', array());
+      $enabled_roles = array_filter($enabled);
+      foreach ($enabled_roles as $rid => $val)
+      {
+        $roles = user_roles();
+        if (isset($enabled_roles[$rid])) 
+        {
+          $role = $roles[$rid];
+          $targets['uc_price_per_role_' . $rid] = array(
+            'name' => t('UC: ' . $role),
+            'callback' => 'uc_feeds_set_target',
+            'description' => 'Ubercart:' . t('Price for role:' . $role),
+          );    
+        }
+      }   
+    }
+    
     // Attributes
     if (module_exists("uc_attribute")) {
       $attribs = uc_attribute_load_multiple();
@@ -96,12 +116,15 @@ function uc_feeds_feeds_processor_targets_alter(&$targets, $entity_type, $bundle
   * element the user has picked as a source.
   */
 function uc_feeds_set_target($source, $node, $target, $value) {
-print '<pre>';
-print_r($value);
-print '</pre> <br>'; 
- if (!is_array($value)) {
-    if (substr($target, 0, 10) != "attribute_") {
+  
+  if (!is_array($value)) {
+    if ((substr($target, 0, 10) != "attribute_") && (substr($target, 0, 18) != "uc_price_per_role_")) {
       $node->$target = $value;
+    }
+    elseif(substr($target, 0, 18) == "uc_price_per_role_"){
+      $pid = substr($target, 18);
+      if ($value==''){$value = 0;} 
+      $node->uc_prices_per_role->$pid = $value; 
     }
     else {
       $ao_arr = explode("_", $target);
@@ -134,9 +157,11 @@ function uc_feeds_node_insert($node) {
       // Load all options for added attributes. (Will only enable the ones set in the import)
       $attribute = uc_attribute_load($aid);
       
-      foreach ($attribute->options as $option) {
-		// some part of the option is set, default all empty parts to 0 or ''
-        if (isset($node->attributes[$aid]->options[$option->oid])) {
+      foreach ($attribute->options as $option) 
+      {
+		    // some part of the option is set, default all empty parts to 0 or ''
+        if (isset($node->attributes[$aid]->options[$option->oid])) 
+        {
           $option->price = ($node->attributes[$aid]->options[$option->oid]->price != '') ? $node->attributes[$aid]->options[$option->oid]->price : 0;
           $option->cost = ($node->attributes[$aid]->options[$option->oid]->cost != '') ? $node->attributes[$aid]->options[$option->oid]->cost : 0;
           $option->weight = ($node->attributes[$aid]->options[$option->oid]->weight != '') ? $node->attributes[$aid]->options[$option->oid]->weight : 0;
@@ -149,7 +174,7 @@ function uc_feeds_node_insert($node) {
             'weight' => $option->weight,
             'ordering' => $option->ordering,
           ))->execute();
-		}
+		    }
       }
       
       // Make the first option (if any) the default.
@@ -180,6 +205,22 @@ function uc_feeds_node_insert($node) {
           'display' => $res['display'],
         ))
       ->execute();
+    }
+  }
+  
+  if(uc_product_is_product($node) && module_exists("uc_price_per_role"))
+  {
+    foreach($node->uc_prices_per_role as $rid => $price)
+    {
+      $aid = db_insert('uc_price_per_role_prices')
+      ->fields(array(
+        'vid' => $node->vid,
+        'nid' => $node->nid,
+        'rid' => $rid,
+        'price' => $price,
+      ))
+      ->execute();
+     // drupal_set_message('<pre>+'. print_r($node->nid, true) .'</pre>');
     }
   }
 }
