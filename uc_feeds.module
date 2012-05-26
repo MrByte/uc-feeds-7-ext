@@ -37,12 +37,6 @@ function uc_feeds_feeds_processor_targets_alter(&$targets, $entity_type, $bundle
       'description' => 'Ubercart:' . t('Sell price'),
     );
 
-    $targets['role_prices[4]'] = array(
-      'name' => t('UC: role_prices[4]'),
-      'callback' => 'uc_feeds_set_target',
-      'description' => 'Ubercart:' . t('role_prices[4]'),
-    );
-
     // Weight
     $targets['weight'] = array(
       'name' => t('UC: Weight'),
@@ -122,9 +116,9 @@ function uc_feeds_set_target($source, $node, $target, $value) {
       $node->$target = $value;
     }
     elseif(substr($target, 0, 18) == "uc_price_per_role_"){
-      $pid = substr($target, 18);
+      $rid = substr($target, 18);
       if ($value==''){$value = 0;} 
-      $node->uc_prices_per_role->$pid = $value; 
+      $node->role_prices->$rid = $value; 
     }
     else {
       $ao_arr = explode("_", $target);
@@ -205,22 +199,6 @@ function uc_feeds_node_insert($node) {
           'display' => $res['display'],
         ))
       ->execute();
-    }
-  }
-  
-  if(uc_product_is_product($node) && module_exists("uc_price_per_role"))
-  {
-    foreach($node->uc_prices_per_role as $rid => $price)
-    {
-      $aid = db_insert('uc_price_per_role_prices')
-      ->fields(array(
-        'vid' => $node->vid,
-        'nid' => $node->nid,
-        'rid' => $rid,
-        'price' => $price,
-      ))
-      ->execute();
-     // drupal_set_message('<pre>+'. print_r($node->nid, true) .'</pre>');
     }
   }
 }
