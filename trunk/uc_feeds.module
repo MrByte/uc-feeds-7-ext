@@ -49,6 +49,13 @@ function uc_feeds_feeds_processor_targets_alter(&$targets, $entity_type, $bundle
       'description' => 'Ubercart:' . t('Weight Unit'),
     );
     
+    // Stock
+    $targets['stock'] = array(
+      'name' => t('UC: Stock'),
+      'callback' => 'uc_feeds_set_target',
+      'description' => 'Ubercart:' . t('Stock'),
+    );
+    
     // Prices per Role
     if (module_exists("uc_price_per_role"))
     {
@@ -112,15 +119,8 @@ function uc_feeds_feeds_processor_targets_alter(&$targets, $entity_type, $bundle
 function uc_feeds_set_target($source, $node, $target, $value) {
   
   if (!is_array($value)) {
-    if ((substr($target, 0, 10) != "attribute_") && (substr($target, 0, 18) != "uc_price_per_role_")) {
-      $node->$target = $value;
-    }
-    elseif(substr($target, 0, 18) == "uc_price_per_role_"){
-      $rid = substr($target, 18);
-      if ($value==''){$value = 0;} 
-      $node->role_prices->$rid = $value; 
-    }
-    else {
+    
+    if ((substr($target, 0, 10) == "attribute_")) {
       $ao_arr = explode("_", $target);
       $aid = $ao_arr[2];
       $oid = $ao_arr[3];
@@ -138,6 +138,14 @@ function uc_feeds_set_target($source, $node, $target, $value) {
       elseif (substr($target, 0, 16) == "attribute_weight" && $value != '') {
         $node->attributes[$aid]->options[$oid]->weight = $value;
       }
+    }
+    elseif(substr($target, 0, 18) == "uc_price_per_role_"){
+      $rid = substr($target, 18);
+      if ($value==''){$value = 0;} 
+      $node->role_prices->$rid = $value; 
+    }
+    else {
+      $node->$target = $value;
     }
   }
 }
@@ -200,5 +208,16 @@ function uc_feeds_node_insert($node) {
         ))
       ->execute();
     }
+  }
+
+  if (uc_product_is_product($node) && module_exists("uc_stock"))
+  {
+    $nid = db_insert('uc_product_stock')
+      ->fields(array(
+          'nid' => $node->nid,
+          'sku' => $node->model,
+          'stock' => $node->stock,
+        ))
+      ->execute();
   }
 }
