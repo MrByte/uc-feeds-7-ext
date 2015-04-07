@@ -1,0 +1,1 @@
+Extending uc\_feeds\_7x for importing to uc\_price\_per\_role.
